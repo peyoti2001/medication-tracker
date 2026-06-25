@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Medication tracker</title>
+<style>
+  :root {
+    --color-background-primary: #ffffff;
+    --color-background-secondary: #f5f5f4;
+    --color-background-tertiary: #ececea;
+    --color-background-danger: #fcebeb;
+    --color-background-warning: #faeeda;
+    --color-background-success: #eaf3de;
+    --color-background-info: #e6f1fb;
+    --color-text-primary: #1a1a1a;
+    --color-text-secondary: #666666;
+    --color-text-tertiary: #999999;
+    --color-text-danger: #791f1f;
+    --color-text-warning: #633806;
+    --color-text-success: #27500a;
+    --color-text-info: #0c447c;
+    --color-border-tertiary: rgba(0,0,0,0.15);
+    --color-border-secondary: rgba(0,0,0,0.3);
+    --border-radius-md: 8px;
+    --border-radius-lg: 12px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background-primary: #1c1c1c;
+      --color-background-secondary: #262626;
+      --color-background-tertiary: #2e2e2e;
+      --color-background-danger: #3a1f1f;
+      --color-background-warning: #3a2f12;
+      --color-background-success: #1f2e14;
+      --color-background-info: #15293a;
+      --color-text-primary: #f0f0f0;
+      --color-text-secondary: #b0b0b0;
+      --color-text-tertiary: #808080;
+      --color-text-danger: #f0a8a8;
+      --color-text-warning: #f0cf8a;
+      --color-text-success: #b3d98a;
+      --color-text-info: #a8cdf0;
+      --color-border-tertiary: rgba(255,255,255,0.15);
+      --color-border-secondary: rgba(255,255,255,0.3);
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-background-secondary);
+    color: var(--color-text-primary);
+    margin: 0;
+    padding: 24px 16px 60px;
+  }
+  .page { max-width: 700px; margin: 0 auto; }
+  input, select, textarea, button { font-family: var(--font-sans); }
+  input[type=text], input[type=date], select, textarea {
+    background: var(--color-background-primary);
+    color: var(--color-text-primary);
+    border: 0.5px solid var(--color-border-tertiary);
+    border-radius: var(--border-radius-md);
+  }
+  input[type=text]:focus, input[type=date]:focus, select:focus, textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 2px var(--color-text-info);
+  }
+
+  .mt-wrap { font-family: var(--font-sans); }
+  .mt-icon { width: 14px; height: 14px; display: inline-block; vertical-align: -2px; flex-shrink: 0; }
+  .mt-icon-lg { width: 22px; height: 22px; }
+  .mt-kpi { background: var(--color-background-secondary); border-radius: var(--border-radius-md); padding: 14px 16px; position: relative; overflow: hidden; }
+  .mt-kpi .lbl { font-size: 11px; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--color-text-secondary); margin: 0 0 6px; }
+  .mt-kpi .val { font-size: 26px; font-weight: 600; margin: 0; line-height: 1; letter-spacing: -0.02em; }
+  .mt-pill { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; padding: 3px 10px; border-radius: 100px; font-weight: 600; white-space: nowrap; }
+  .mt-card { background: var(--color-background-primary); border: 1px solid var(--color-border-tertiary); border-radius: var(--border-radius-lg); padding: 1rem 1.1rem; margin-bottom: 10px; transition: border-color 0.15s; }
+  .mt-card:hover { border-color: var(--color-border-secondary); }
+  .mt-btn { font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: var(--border-radius-md); border: 1px solid var(--color-border-secondary); background: var(--color-background-primary); color: var(--color-text-primary); cursor: pointer; display: inline-flex; align-items: center; gap: 5px; transition: background 0.12s, transform 0.08s; }
+  .mt-btn:hover { background: var(--color-background-secondary); }
+  .mt-btn:active { transform: scale(0.97); }
+  .mt-btn-icon { padding: 6px 9px; }
+  .mt-tab { font-size: 12.5px; font-weight: 500; padding: 7px 13px; border-radius: var(--border-radius-md); border: 1px solid var(--color-border-tertiary); background: transparent; color: var(--color-text-secondary); cursor: pointer; white-space: nowrap; transition: all 0.12s; }
+  .mt-tab:hover { background: var(--color-background-secondary); }
+  .mt-tab.active { background: var(--color-text-primary); color: var(--color-background-primary); border-color: var(--color-text-primary); }
+  .mt-select, .mt-input { font-size: 13px; }
+  .mt-divider { height: 1px; background: var(--color-border-tertiary); margin: 4px 0; }
+  .mt-meta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 12px; color: var(--color-text-secondary); align-items: center; }
+  .mt-meta-item { display: inline-flex; align-items: center; gap: 5px; }
+
+</style>
+</head>
+<body>
+<div class="page" id="app-root"></div>
+<script>
+  window.storage = (function(){
+    const PREFIX = "med_tracker_";
+    function read(k){ const raw = localStorage.getItem(PREFIX+k); if(raw===null) return undefined; return raw; }
+    return {
+      get: async (key, shared) => {
+        const k = (shared?"shared:":"priv:")+key;
+        const v = read(k);
+        if (v === undefined) throw new Error("not found");
+        return { key, value: v, shared: !!shared };
+      },
+      set: async (key, value, shared) => {
+        const k = (shared?"shared:":"priv:")+key;
+        localStorage.setItem(PREFIX+k, value);
+        return { key, value, shared: !!shared };
+      },
+      delete: async (key, shared) => {
+        const k = (shared?"shared:":"priv:")+key;
+        localStorage.removeItem(PREFIX+k);
+        return { key, deleted: true, shared: !!shared };
+      },
+      list: async (prefix, shared) => {
+        const p = PREFIX + (shared?"shared:":"priv:") + (prefix||"");
+        const keys = [];
+        for (let i=0;i<localStorage.length;i++){ const k=localStorage.key(i); if(k && k.startsWith(p)) keys.push(k.slice(PREFIX.length)); }
+        return { keys, prefix, shared: !!shared };
+      }
+    };
+  })();
+  window.sendPrompt = function(text){ alert("This button links back to a Claude conversation, which isn't available in the standalone version. Your message would have been:\n\n" + text); };
+  window.openLink = function(url){ window.open(url, "_blank"); };
+</script>
+<script>
+
+document.getElementById("app-root").innerHTML = "<h2 class=\"sr-only\" style=\"position:absolute;left:-9999px;\">Medication inventory tracker with 35 items across 4 boxes, showing expiry status, plain-language explanations, and refill needs</h2>\n\n\n<svg width=\"0\" height=\"0\" style=\"position:absolute;\" aria-hidden=\"true\">\n  <defs>\n    <symbol id=\"icon-kit\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <path d=\"M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9Z\"/><path d=\"M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/><path d=\"M12 12v4\"/><path d=\"M10 14h4\"/>\n    </symbol>\n    <symbol id=\"icon-download\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <path d=\"M12 3v12\"/><path d=\"m7 10 5 5 5-5\"/><path d=\"M5 19h14\"/>\n    </symbol>\n    <symbol id=\"icon-refresh\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <path d=\"M3 12a9 9 0 0 1 15-6.7L21 8\"/><path d=\"M21 3v5h-5\"/><path d=\"M21 12a9 9 0 0 1-15 6.7L3 16\"/><path d=\"M3 21v-5h5\"/>\n    </symbol>\n    <symbol id=\"icon-edit\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <path d=\"M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z\"/>\n    </symbol>\n    <symbol id=\"icon-trash\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <path d=\"M3 6h18\"/><path d=\"M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6\"/><path d=\"M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2\"/>\n    </symbol>\n    <symbol id=\"icon-box\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <path d=\"M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z\"/><path d=\"m3.3 7 8.7 5 8.7-5\"/><path d=\"M12 22V12\"/>\n    </symbol>\n    <symbol id=\"icon-plus\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <path d=\"M5 12h14\"/><path d=\"M12 5v14\"/>\n    </symbol>\n    <symbol id=\"icon-calendar\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\">\n      <rect x=\"3\" y=\"4\" width=\"18\" height=\"18\" rx=\"2\"/><path d=\"M16 2v4\"/><path d=\"M8 2v4\"/><path d=\"M3 10h18\"/>\n    </symbol>\n  </defs>\n</svg>\n\n<div class=\"mt-wrap\">\n  <div style=\"display:flex; align-items:center; justify-content:space-between; gap:8px; margin-bottom: 16px; flex-wrap: wrap;\">\n    <div style=\"display:flex; align-items:center; gap:10px;\">\n      <svg class=\"mt-icon-lg\" style=\"color: var(--color-text-primary);\" aria-hidden=\"true\"><use href=\"#icon-kit\"/></svg>\n      <span style=\"font-size:17px; font-weight:600; letter-spacing:-0.01em;\">Medication tracker</span>\n    </div>\n    <div style=\"display:flex; gap:6px;\">\n      <button class=\"mt-btn\" id=\"mt-export\" aria-label=\"Export data as JSON\"><svg class=\"mt-icon\" aria-hidden=\"true\"><use href=\"#icon-download\"/></svg>Export</button>\n      <button class=\"mt-btn\" id=\"mt-reset\" aria-label=\"Reset to original data\"><svg class=\"mt-icon\" aria-hidden=\"true\"><use href=\"#icon-refresh\"/></svg>Reset</button>\n    </div>\n  </div>\n\n  <div style=\"display:grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 10px; margin-bottom: 16px;\">\n    <div class=\"mt-kpi\"><p class=\"lbl\">Total items</p><p class=\"val\" id=\"kpi-total\">-</p></div>\n    <div class=\"mt-kpi\" style=\"background: var(--color-background-danger);\"><p class=\"lbl\" style=\"color: var(--color-text-danger);\">Expired</p><p class=\"val\" id=\"kpi-expired\" style=\"color: var(--color-text-danger);\">-</p></div>\n    <div class=\"mt-kpi\" style=\"background: var(--color-background-warning);\"><p class=\"lbl\" style=\"color: var(--color-text-warning);\">Expiring soon</p><p class=\"val\" id=\"kpi-soon\" style=\"color: var(--color-text-warning);\">-</p></div>\n    <div class=\"mt-kpi\" style=\"background: var(--color-background-info);\"><p class=\"lbl\" style=\"color: var(--color-text-info);\">Needs action</p><p class=\"val\" id=\"kpi-action\" style=\"color: var(--color-text-info);\">-</p></div>\n  </div>\n\n  <div style=\"display:flex; gap:6px; margin-bottom:12px; overflow-x:auto; padding-bottom:4px;\" id=\"mt-box-tabs\"></div>\n\n  <div style=\"display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap;\">\n    <div style=\"position:relative; flex:1; min-width:160px;\">\n      <input type=\"text\" id=\"mt-search\" class=\"mt-input\" placeholder=\"Search name, use, ingredient...\" style=\"width:100%; height:36px; padding:0 12px; border-radius: var(--border-radius-md); border:1px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-primary);\">\n    </div>\n    <select id=\"mt-filter-status\" class=\"mt-select\" style=\"height:36px; border-radius: var(--border-radius-md); border:1px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-primary); padding: 0 10px; font-weight:500;\">\n      <option value=\"all\">All statuses</option>\n      <option value=\"expired\">Expired</option>\n      <option value=\"soon\">Expiring soon</option>\n      <option value=\"valid\">Valid</option>\n    </select>\n    <select id=\"mt-filter-action\" class=\"mt-select\" style=\"height:36px; border-radius: var(--border-radius-md); border:1px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-primary); padding: 0 10px; font-weight:500;\">\n      <option value=\"all\">All actions</option>\n      <option value=\"keep\">Keep</option>\n      <option value=\"refill-soon\">Refill soon</option>\n      <option value=\"needs-refill\">Needs refill</option>\n      <option value=\"keep-no-refill\">Keep, no refill</option>\n    </select>\n  </div>\n\n  <div id=\"mt-list\"></div>\n  <p id=\"mt-empty\" style=\"display:none; text-align:center; color: var(--color-text-tertiary); font-size:13px; padding: 24px 0;\">No items match your filters.</p>\n\n  <div style=\"margin-top:16px; padding-top:12px; border-top:0.5px solid var(--color-border-tertiary);\">\n    <button class=\"mt-btn\" id=\"mt-add\" style=\"width:100%; justify-content:center; padding:10px;\"><svg class=\"mt-icon\" aria-hidden=\"true\"><use href=\"#icon-plus\"/></svg>Add item</button>\n  </div>\n  <p style=\"font-size:11px; color: var(--color-text-tertiary); margin-top:10px; text-align:center;\" id=\"mt-savestate\">Saved locally</p>\n</div>";
+
+(function(){
+  const SEED_DATA = [{"id":"b1-1","box":"Box 1: Brown toiletry bag","name":"Panklav 2X","nameLocal":"Panklav 2X","ingredient":"Amoxicillin 875mg + Clavulanic acid 125mg","manufacturer":"Hemofarm","use":"Antibiotic — bacterial infections (respiratory, sinus, etc.)","about":"A combination antibiotic. Amoxicillin kills bacteria by breaking down their cell walls; clavulanic acid stops bacteria from neutralizing the amoxicillin, so it works against a broader range of infections (sinus, throat, chest, skin, etc.). Needs a prescription and a full course — stopping early can let bacteria survive and become resistant.","category":"Antibiotic","qty":"1 box (14 tabs)","expiry":"2027-09-01","action":"Keep","notes":"Prescription-only; don't self-start without medical advice"},{"id":"b1-2","box":"Box 1: Brown toiletry bag","name":"Brufen 600mg","nameLocal":"Brufen","ingredient":"Ibuprofen","manufacturer":"Viatris","use":"Pain reliever / anti-inflammatory (NSAID)","about":"A nonsteroidal anti-inflammatory (NSAID). Blocks enzymes (COX-1/COX-2) that produce prostaglandins, the chemicals that cause pain, swelling, and fever. Good for headaches, muscle aches, menstrual pain, and inflammation; taken with food to protect the stomach.","category":"Pain/NSAID","qty":"1 box (30 tabs)","expiry":"2028-05-01","action":"Keep","notes":""},{"id":"b1-3","box":"Box 1: Brown toiletry bag","name":"Orthomol Immun","nameLocal":"Orthomol Imun","ingredient":"Multivitamin/mineral blend","manufacturer":"Orthomol","use":"Immune-support supplement","about":"A daily multivitamin/mineral drink supplement (vitamin C, zinc, B-vitamins, etc.) marketed to support normal immune function, especially during cold/flu season or times of stress. Not a treatment for illness — a general nutritional top-up.","category":"Supplement","qty":"Sachets + vials","expiry":null,"action":"Keep","notes":"Valid (not expired); daily sachet + vial combo"},{"id":"b1-4","box":"Box 1: Brown toiletry bag","name":"Olbas Oil","nameLocal":"Olbas ulje","ingredient":"Clove oil, Eucalyptus oil, Levomenthol, Methyl salicylate, Juniper berry oil, Mint oil, Pumilio pine oil","manufacturer":"G.R. Lane Health Products","use":"Inhalant decongestant — colds, blocked sinus","about":"A blend of aromatic essential oils (eucalyptus, menthol, clove, etc.). Inhaling the vapor gives a cooling sensation in the nose and throat that makes breathing feel easier, even though it doesn't actually clear physical mucus. Often used on a tissue or in steam inhalation for colds.","category":"Cold/Decongestant","qty":"1 bottle (15ml)","expiry":"2020-06-01","action":"Keep - No Refill","notes":"User elected to keep despite expiry; oils lose potency but aren't unsafe"},{"id":"b1-5","box":"Box 1: Brown toiletry bag","name":"Ksilometazolin hidrohlorid 0.1% (Xylometazoline)","nameLocal":"Ksilometazolin","ingredient":"Xylometazoline HCl 0.1%","manufacturer":"Galenska laboratorija Niš","use":"Nasal decongestant spray","about":"A nasal spray that narrows (constricts) the swollen blood vessels inside the nose, which quickly relieves stuffiness from colds or allergies. Works within minutes but shouldn't be used for more than about 5-7 days in a row, since longer use can cause rebound congestion.","category":"Cold/Decongestant","qty":"2 bottles (30ml each)","expiry":"2029-03-01","action":"Keep","notes":""},{"id":"b1-6","box":"Box 1: Brown toiletry bag","name":"Buscopan","nameLocal":"Buskopan","ingredient":"Hyoscine butylbromide 10mg","manufacturer":"Sanofi","use":"Antispasmodic — stomach/intestinal cramps","about":"An antispasmodic that relaxes the smooth muscle lining the gut, easing the cramping pain that comes from spasms in the stomach or intestines (e.g. with IBS or general stomach cramps). Doesn't treat the underlying cause, just the cramping itself.","category":"GI/Digestive","qty":"1 box (20 tabs)","expiry":"2026-01-01","action":"Needs Refill","notes":""},{"id":"b1-7","box":"Box 1: Brown toiletry bag","name":"Dr. Pavlović Mast za bebe","nameLocal":"Pavlovićeva mast","ingredient":"Chamomile extract (herbal)","manufacturer":"Dr. Pavlović","use":"Herbal ointment — baby skin/diaper irritation","about":"A chamomile-based herbal ointment traditionally used in Serbia to soothe minor skin irritation on babies, especially diaper rash. Chamomile has mild anti-inflammatory and calming properties on skin. Not a regulated pharmaceutical — more of a traditional skincare remedy.","category":"Topical/Herbal","qty":"1 jar","expiry":null,"action":"Keep","notes":"Valid; cosmetic/herbal, not a regulated drug"},{"id":"b1-8","box":"Box 1: Brown toiletry bag","name":"Perga (Bee Pollen)","nameLocal":"Perga","ingredient":"Bee pollen/bee bread","manufacturer":"Pčelinjaci Stanković","use":"Natural supplement — general wellness/immune support","about":"Bee pollen ('bee bread') collected and fermented by bees, sold as a natural food supplement. Contains proteins, vitamins, and antioxidants; some people use it for general energy and immune support, though scientific evidence for specific health claims is limited. Not a pharmaceutical product.","category":"Supplement","qty":"1 jar","expiry":null,"action":"Keep","notes":"Valid; beekeeping product, not pharmaceutical"},{"id":"b1-9","box":"Box 1: Brown toiletry bag","name":"Strong Aktivni Ugalj (Activated Charcoal)","nameLocal":"Aktivni ugalj","ingredient":"Activated charcoal","manufacturer":"Strong Nature","use":"Digestive supplement — bloating/gas/mild GI upset","about":"Activated charcoal has a highly porous surface that binds (adsorbs) gas and certain substances in the gut. Commonly used as an over-the-counter remedy for bloating, gas, or general digestive discomfort. Can also reduce absorption of other medications taken at the same time, so it's best spaced apart from other pills.","category":"GI/Digestive","qty":"1 blister pack","expiry":null,"action":"Keep","notes":"Valid"},{"id":"b2-1","box":"Box 2: Blue/teal striped toiletry bag","name":"Clindamycin-MIP 600mg","nameLocal":"Klindamicin","ingredient":"Clindamycin","manufacturer":"MIP Pharma","use":"Antibiotic","about":"An antibiotic that stops bacteria from making the proteins they need to grow and multiply, which lets the immune system clear the infection. Often used for skin, dental, or respiratory infections, and sometimes when someone can't take penicillin-type antibiotics. Prescription-only; needs the full course completed.","category":"Antibiotic","qty":"1 box (12 tabs)","expiry":"2026-05-01","action":"Refill Soon","notes":"Prescription only (\"Samo na recept\"); for ages 14+"},{"id":"b2-2","box":"Box 2: Blue/teal striped toiletry bag","name":"Forteca 500mg","nameLocal":"Forteka","ingredient":"Levofloxacin","manufacturer":"Hemofarm","use":"Antibiotic (fluoroquinolone)","about":"A broad-spectrum antibiotic that interferes with bacterial DNA replication, stopping bacteria from reproducing. Used for harder-to-treat infections (e.g. certain respiratory or urinary infections). Fluoroquinolones carry some extra precautions (tendon/joint effects in rare cases), so they're typically reserved for when other antibiotics aren't suitable.","category":"Antibiotic","qty":"1 box (10 tabs)","expiry":"2026-06-01","action":"Refill Soon","notes":"Handwritten note on box: \"1 pill every 24h\""},{"id":"b2-3","box":"Box 2: Blue/teal striped toiletry bag","name":"Fluimucil 600mg","nameLocal":"Fluimucil","ingredient":"Acetylcysteine","manufacturer":"Zambon","use":"Mucolytic — loosens chest mucus/productive cough","about":"A mucolytic that breaks down the chemical bonds in thick mucus, making it thinner and easier to cough up. Used for chest congestion with a productive (wet) cough, such as bronchitis. Dissolved in water as an effervescent tablet.","category":"Cold/Respiratory","qty":"1 box (10 tabs)","expiry":"2026-10-01","action":"Keep","notes":"Effervescent tablets"},{"id":"b2-4","box":"Box 2: Blue/teal striped toiletry bag","name":"GeloRevoice","nameLocal":"Želorevoajs","ingredient":"Throat lozenge formula","manufacturer":"—","use":"Sore throat relief","about":"A throat lozenge that coats and soothes an irritated throat, temporarily numbing the area and reducing the urge to cough. Mainly symptomatic relief rather than a treatment for the underlying cause of the sore throat.","category":"Cold/Respiratory","qty":"1 tube","expiry":null,"action":"Keep","notes":"Valid"},{"id":"b2-5","box":"Box 2: Blue/teal striped toiletry bag","name":"Physiodose NaCl 0.9%","nameLocal":"Fiziodoza","ingredient":"Sodium chloride 0.9% (saline)","manufacturer":"Gilbert","use":"Nasal/wound/eye rinsing","about":"Sterile saline solution matched to the body's natural salt concentration, so it doesn't sting or irritate tissue. Used to rinse out the nose (for congestion), flush minor wounds, or rinse the eyes — purely mechanical cleansing, no medication in it.","category":"First Aid","qty":"3 vials (5ml each)","expiry":null,"action":"Keep","notes":"Valid; single-dose vials"},{"id":"b2-6","box":"Box 2: Blue/teal striped toiletry bag","name":"Hloramfenikol eye ointment 10mg/g","nameLocal":"Hloramfenikol mast za oči","ingredient":"Chloramphenicol","manufacturer":"Alkaloid","use":"Antibiotic — bacterial eye infection","about":"An antibiotic ointment applied directly to the eye to treat bacterial conjunctivitis (pink eye) and similar infections. Stops bacteria from producing proteins they need to survive. Prescription-only and shouldn't be used in the eye past its expiry, since sterility matters a lot for eye products.","category":"Antibiotic","qty":"1 tube (5g)","expiry":"2023-12-01","action":"Needs Refill","notes":"Prescription only"},{"id":"b2-7","box":"Box 2: Blue/teal striped toiletry bag","name":"Paracetamol 500mg (Galenika)","nameLocal":"Paracetamol Galenika","ingredient":"Paracetamol (Acetaminophen)","manufacturer":"Galenika","use":"Pain reliever / fever reducer","about":"Reduces fever and mild-to-moderate pain by acting on temperature-regulating and pain-signaling centers, mainly in the brain (the exact mechanism is still debated). Gentler on the stomach than NSAIDs like ibuprofen, but easy to accidentally overdose if combined with other paracetamol-containing products.","category":"Pain/Fever","qty":"1 box (20 tabs)","expiry":"2024-02-01","action":"Needs Refill","notes":"Handwritten \"Tempo\" = for fever. Same medicine as Bosnalijek version (Box 3), different manufacturer"},{"id":"b2-8","box":"Box 2: Blue/teal striped toiletry bag","name":"SmectaGo","nameLocal":"Smekta Go","ingredient":"Diosmectite 3g","manufacturer":"Ipsen","use":"Acute diarrhea relief","about":"A clay-based powder (diosmectite) that coats the gut lining and binds to irritants, toxins, and excess fluid in the intestines. Helps firm up stool and ease acute diarrhea. Comes as a ready-to-drink suspension, no mixing needed.","category":"GI/Digestive","qty":"4 sachets","expiry":"2026-10-01","action":"Keep","notes":"Ready-to-use suspension; combined with Box 3 quantity"},{"id":"b2-9","box":"Box 2: Blue/teal striped toiletry bag","name":"Transilane","nameLocal":"Transilan","ingredient":"Psyllium husk (Ispagula) 3g","manufacturer":"—","use":"Fiber / bowel regulation, constipation","about":"A natural soluble fiber (psyllium husk) that absorbs water in the gut and swells up, adding bulk to stool and making it easier to pass. Used for constipation or general bowel regularity. Needs to be taken with plenty of water.","category":"GI/Digestive","qty":"3 sachets","expiry":"2022-10-01","action":"Needs Refill","notes":"Same category as Laxomucil Forte"},{"id":"b2-10","box":"Box 2: Blue/teal striped toiletry bag","name":"Laxomucil Forte","nameLocal":"Laksomucil Forte","ingredient":"Bulk-forming fiber 4.1g","manufacturer":"Hemofarm","use":"Fiber/bulk-forming bowel regulator","about":"Another bulk-forming fiber supplement, working the same way as psyllium husk — absorbing water to bulk up stool and ease constipation. Functionally overlaps with Transilane above.","category":"GI/Digestive","qty":"3 sachets","expiry":"2023-05-01","action":"Needs Refill","notes":"Same category as Transilane"},{"id":"b2-11","box":"Box 2: Blue/teal striped toiletry bag","name":"Caffetin","nameLocal":"Kafetin","ingredient":"Paracetamol 250mg + Propyphenazone 210mg + Caffeine 50mg + Codeine phosphate 7.1mg","manufacturer":"Alkaloid","use":"Combination analgesic — headache, migraine, toothache, muscle/menstrual pain","about":"A four-ingredient combination painkiller. Paracetamol and propyphenazone both reduce pain and fever; caffeine helps the body absorb them faster and adds a mild stimulant boost; codeine is a weak opioid that adds extra pain relief by acting on the brain's pain receptors. Because of the codeine, it's a controlled substance in the US and isn't sold there.","category":"Pain/Fever","qty":"—","expiry":"2028-06-01","action":"Keep","notes":"Contains codeine (controlled substance in US). User refills in Serbia — no action needed"},{"id":"b3-1","box":"Box 3: Solid blue zip pouch","name":"TylolHOT","nameLocal":"Tilolhot","ingredient":"Paracetamol 500mg + Pseudoephedrine 60mg + Chlorphenamine 4mg","manufacturer":"Nobel","use":"Cold & flu relief (fever, congestion, allergy symptoms)","about":"A three-in-one cold/flu remedy: paracetamol for fever and aches, pseudoephedrine to shrink swollen nasal blood vessels and relieve congestion, and chlorphenamine (an antihistamine) to dry up a runny nose and reduce sneezing. Dissolved as a hot drink.","category":"Cold/Decongestant","qty":"2 sachets","expiry":"2027-11-01","action":"Keep","notes":"Effervescent granules"},{"id":"b3-2","box":"Box 3: Solid blue zip pouch","name":"Strong Nature Aktivni Ugalj","nameLocal":"Aktivni ugalj Strong Nature","ingredient":"Activated charcoal","manufacturer":"Strong Nature","use":"Digestive supplement — gut/stomach health","about":"Same as the other activated charcoal product in Box 1 — porous charcoal that adsorbs gas and irritants in the gut, used for bloating and general digestive discomfort.","category":"GI/Digestive","qty":"1 box (10 caps)","expiry":"2028-12-01","action":"Keep","notes":"Duplicate category w/ Box 1 & Box 4 charcoal; combined w/ Box 4's box"},{"id":"b3-3","box":"Box 3: Solid blue zip pouch","name":"Neofen Forte 400mg","nameLocal":"Neofen Forte","ingredient":"Ibuprofen","manufacturer":"Farmavita","use":"Pain reliever / anti-inflammatory","about":"Same active ingredient and mechanism as Brufen above (ibuprofen) — just a different brand/manufacturer. Blocks the enzymes that produce pain- and inflammation-causing chemicals.","category":"Pain/NSAID","qty":"~11 tablets (1 used)","expiry":"2027-04-01","action":"Keep","notes":""},{"id":"b3-4","box":"Box 3: Solid blue zip pouch","name":"Linex","nameLocal":"Lineks","ingredient":"Lactic acid bacteria (probiotic)","manufacturer":"Sandoz","use":"Restores gut flora — used with/after antibiotics, diarrhea","about":"A probiotic capsule containing live 'good' bacteria that normally live in the gut. Antibiotics can wipe out helpful gut bacteria along with the harmful ones, so probiotics like this are often taken during or after a course of antibiotics, or for general digestive upset, to help repopulate the gut with a healthy bacterial balance.","category":"GI/Digestive","qty":"1 strip (~11 caps, 1 used)","expiry":"2023-11-01","action":"Needs Refill","notes":""},{"id":"b3-5","box":"Box 3: Solid blue zip pouch","name":"SmectaGo","nameLocal":"Smekta Go","ingredient":"Diosmectite 3g","manufacturer":"Ipsen","use":"Acute diarrhea relief","about":"Same product as in Box 2 — clay-based powder that coats the gut and binds irritants/excess fluid to firm up stool during diarrhea.","category":"GI/Digestive","qty":"~12-13 sachets","expiry":"2028-02-01","action":"Keep","notes":"Combined with Box 2 quantity — ~16-17 sachets total"},{"id":"b3-6","box":"Box 3: Solid blue zip pouch","name":"Triderm mast","nameLocal":"Triderm mast","ingredient":"Betamethasone 0.5mg/g + Gentamicin 1mg/g + Clotrimazole 10mg/g","manufacturer":"MSD","use":"Topical steroid+antibiotic+antifungal — inflamed skin infections","about":"A three-in-one skin cream: betamethasone (a steroid) calms inflammation and itching, gentamicin kills bacteria, and clotrimazole kills fungus. Used for skin conditions where infection and inflammation are both present and the exact cause (bacterial vs fungal) isn't certain — common for things like infected eczema or fungal rashes with inflammation.","category":"Topical","qty":"1 tube","expiry":null,"action":"Keep","notes":"Valid; prescription-style combo ointment"},{"id":"b3-7","box":"Box 3: Solid blue zip pouch","name":"Livsane Active Carbon 250","nameLocal":"Aktivni ugalj Livsane","ingredient":"Activated charcoal","manufacturer":"Livsane","use":"Digestive supplement — gut/stomach health","about":"A third brand of the same activated charcoal supplement — adsorbs gas and irritants in the gut for bloating/digestive discomfort.","category":"GI/Digestive","qty":"1 box (20 tabs)","expiry":"2026-11-30","action":"Keep","notes":"Third charcoal product — duplicate category"},{"id":"b3-8","box":"Box 3: Solid blue zip pouch","name":"Neosporin Original Ointment","nameLocal":"Neosporin","ingredient":"Bacitracin Zinc + Neomycin Sulfate + Polymyxin B Sulfate","manufacturer":"Johnson & Johnson","use":"First-aid antibiotic — minor cuts/scrapes","about":"A triple-antibiotic ointment combining three different antibiotics that each attack bacteria in a different way, giving broad protection against infection in minor cuts, scrapes, and burns. Applied directly to the wound, then covered with a bandage.","category":"First Aid","qty":"1 tube (0.5oz)","expiry":"2028-01-01","action":"Keep","notes":"US product — easy to refill locally"},{"id":"b3-9","box":"Box 3: Solid blue zip pouch","name":"Paracetamol 500mg (Bosnalijek)","nameLocal":"Paracetamol Bosnalijek","ingredient":"Paracetamol (Acetaminophen)","manufacturer":"Bosnalijek","use":"Pain reliever / fever reducer","about":"Same medicine as the Galenika paracetamol in Box 2, different manufacturer. Reduces fever and mild-to-moderate pain.","category":"Pain/Fever","qty":"~6 tablets (partial strip)","expiry":"2027-07-01","action":"Keep","notes":"Same medicine as Galenika version (Box 2), different manufacturer — this one valid"},{"id":"b4-1","box":"Box 4: Printed pouch with horse rider/face design","name":"Panklav 2X","nameLocal":"Panklav 2X","ingredient":"Amoxicillin 875mg + Clavulanic acid 125mg","manufacturer":"Hemofarm","use":"Antibiotic — bacterial infections","about":"Same combination antibiotic as in Box 1 — amoxicillin plus clavulanic acid, used for a broad range of bacterial infections. This is a second, separate box.","category":"Antibiotic","qty":"1 box (14 tabs)","expiry":"2027-03-01","action":"Keep","notes":"2nd box — combined w/ Box 1's (exp. 09/2027)"},{"id":"b4-2","box":"Box 4: Printed pouch with horse rider/face design","name":"Definol Forte","nameLocal":"Definol Forte","ingredient":"Pseudoephedrine 60mg + Ibuprofen 400mg","manufacturer":"Galenika","use":"Cold/flu relief — decongestant + pain/anti-inflammatory","about":"A two-in-one cold/flu remedy: pseudoephedrine shrinks swollen nasal blood vessels to relieve congestion, while ibuprofen reduces the pain, fever, and body aches that come with a cold or flu.","category":"Cold/Decongestant","qty":"1 box","expiry":"2025-10-01","action":"Needs Refill","notes":""},{"id":"b4-3","box":"Box 4: Printed pouch with horse rider/face design","name":"Strong Nature Aktivni Ugalj","nameLocal":"Aktivni ugalj Strong Nature","ingredient":"Activated charcoal","manufacturer":"Strong Nature","use":"Digestive supplement — gut/stomach health","about":"Same activated charcoal product as the one in Box 3 — same brand, same batch. Adsorbs gas/irritants in the gut for bloating relief.","category":"GI/Digestive","qty":"1 box (10 caps)","expiry":"2028-12-01","action":"Keep","notes":"2nd box, same batch as Box 3's — combined total 2 boxes (20 caps)"},{"id":"b4-4","box":"Box 4: Printed pouch with horse rider/face design","name":"Espumisan 40mg","nameLocal":"Espumisan","ingredient":"Simethicone","manufacturer":"Berlin-Chemie","use":"Anti-gas / anti-bloating","about":"Simethicone works mechanically rather than chemically — it breaks up small gas bubbles trapped in the gut into larger ones that are easier to pass or burp up, relieving bloating and gas pain. Not absorbed into the bloodstream, so it's considered very safe, including for infants.","category":"GI/Digestive","qty":"1 box (50 caps)","expiry":"2026-04-01","action":"Keep","notes":""},{"id":"b4-5","box":"Box 4: Printed pouch with horse rider/face design","name":"Silicolgel","nameLocal":"Silikol gel","ingredient":"Colloidal Silicic Acid","manufacturer":"FW Medical","use":"GI disorders — heartburn, reflux, IBS symptoms","about":"A gel that coats the lining of the esophagus and stomach, forming a protective barrier that helps soothe and protect against acid reflux and irritation. Also used for a broader range of IBS-type symptoms like bloating and discomfort.","category":"GI/Digestive","qty":"1 bottle (200ml)","expiry":"2026-02-01","action":"Keep","notes":""},{"id":"b4-6","box":"Box 4: Printed pouch with horse rider/face design","name":"Clindamycin-MIP 600mg","nameLocal":"Klindamicin","ingredient":"Clindamycin","manufacturer":"MIP Pharma","use":"Antibiotic","about":"Same antibiotic as the one in Box 2 — stops bacteria from producing the proteins they need to grow. This is a second, separate box with an earlier expiry date.","category":"Antibiotic","qty":"1 box (12 tabs)","expiry":"2025-06-01","action":"Needs Refill","notes":"Handwritten note: \"1 pill every 8h\". Box 2's copy still valid until 05/2026 — covers for now"}];
+
+  const STORAGE_KEY = "med-inventory-v1";
+  let state = { items: null, activeBox: "all", search: "", statusFilter: "all", actionFilter: "all" };
+
+  function daysUntil(expiry, today) {
+    if (!expiry) return null;
+    const exp = new Date(expiry + "T00:00:00");
+    const t = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    return Math.round((exp - t) / 86400000);
+  }
+  function expiryStatus(expiry, today) {
+    if (!expiry) return "valid";
+    const d = daysUntil(expiry, today);
+    if (d < 0) return "expired";
+    if (d <= 60) return "soon";
+    return "valid";
+  }
+  function actionBucket(action) {
+    if (!action) return "other";
+    const a = action.toLowerCase();
+    if (a.includes("no refill")) return "keep-no-refill";
+    if (a === "needs refill") return "needs-refill";
+    if (a === "refill soon") return "refill-soon";
+    if (a === "keep") return "keep";
+    if (a === "discard") return "discard";
+    return "other";
+  }
+  function needsAction(item) {
+    const b = actionBucket(item.action);
+    return b === "needs-refill" || b === "refill-soon";
+  }
+  function fmtDate(expiry) {
+    if (!expiry) return "No date on file";
+    const d = new Date(expiry + "T00:00:00");
+    return d.toLocaleDateString(undefined, { year: "numeric", month: "short" });
+  }
+  function statusPill(status) {
+    const map = {
+      expired: ["Expired", "var(--color-background-danger)", "var(--color-text-danger)"],
+      soon: ["Expiring soon", "var(--color-background-warning)", "var(--color-text-warning)"],
+      valid: ["Valid", "var(--color-background-success)", "var(--color-text-success)"]
+    };
+    const [label, bg, fg] = map[status];
+    return `<span class="mt-pill" style="background:${bg}; color:${fg};">${label}</span>`;
+  }
+  function actionPill(action) {
+    const b = actionBucket(action);
+    const map = {
+      "keep": ["Keep", "var(--color-background-success)", "var(--color-text-success)"],
+      "needs-refill": ["Needs refill", "var(--color-background-danger)", "var(--color-text-danger)"],
+      "refill-soon": ["Refill soon", "var(--color-background-warning)", "var(--color-text-warning)"],
+      "keep-no-refill": ["Keep, no refill", "var(--color-background-tertiary)", "var(--color-text-secondary)"],
+      "discard": ["Discard", "var(--color-background-tertiary)", "var(--color-text-secondary)"],
+      "other": [action || "-", "var(--color-background-tertiary)", "var(--color-text-secondary)"]
+    };
+    const [label, bg, fg] = map[b];
+    return `<span class="mt-pill" style="background:${bg}; color:${fg};">${label}</span>`;
+  }
+
+  async function loadState() {
+    try {
+      const result = await window.storage.get(STORAGE_KEY, false);
+      if (result && result.value) {
+        state.items = JSON.parse(result.value);
+        return;
+      }
+    } catch (e) {}
+    state.items = JSON.parse(JSON.stringify(SEED_DATA));
+  }
+  async function saveState() {
+    const el = document.getElementById("mt-savestate");
+    try {
+      await window.storage.set(STORAGE_KEY, JSON.stringify(state.items), false);
+      if (el) { el.textContent = "Saved locally"; el.style.color = ""; }
+    } catch (e) {
+      if (el) { el.textContent = "Save failed - changes may not persist"; el.style.color = "var(--color-text-danger)"; }
+    }
+  }
+
+  function getBoxes() {
+    const boxes = [...new Set(state.items.map(i => i.box))];
+    return boxes;
+  }
+
+  function renderTabs() {
+    const boxes = getBoxes();
+    const wrap = document.getElementById("mt-box-tabs");
+    const allBtn = `<button class="mt-tab ${state.activeBox==='all'?'active':''}" data-box="all">All boxes</button>`;
+    const boxBtns = boxes.map(b => {
+      const shortName = b.includes(":") ? b.split(":")[1].trim() : b;
+      return `<button class="mt-tab ${state.activeBox===b?'active':''}" data-box="${encodeURIComponent(b)}">${shortName}</button>`;
+    }).join("");
+    wrap.innerHTML = allBtn + boxBtns;
+    wrap.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        state.activeBox = btn.dataset.box === "all" ? "all" : decodeURIComponent(btn.dataset.box);
+        render();
+      });
+    });
+  }
+
+  function filteredItems(today) {
+    return state.items.filter(item => {
+      if (state.activeBox !== "all" && item.box !== state.activeBox) return false;
+      const status = expiryStatus(item.expiry, today);
+      if (state.statusFilter !== "all" && status !== state.statusFilter) return false;
+      const bucket = actionBucket(item.action);
+      if (state.actionFilter !== "all" && bucket !== state.actionFilter) return false;
+      if (state.search) {
+        const q = state.search.toLowerCase();
+        const hay = [item.name, item.nameLocal, item.use, item.ingredient, item.manufacturer, item.notes, item.about].join(" ").toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    });
+  }
+
+  function renderKPIs(today) {
+    const all = state.items;
+    document.getElementById("kpi-total").textContent = all.length;
+    document.getElementById("kpi-expired").textContent = all.filter(i => expiryStatus(i.expiry, today) === "expired").length;
+    document.getElementById("kpi-soon").textContent = all.filter(i => expiryStatus(i.expiry, today) === "soon").length;
+    document.getElementById("kpi-action").textContent = all.filter(needsAction).length;
+  }
+
+  function itemCard(item, today) {
+    const status = expiryStatus(item.expiry, today);
+    const d = daysUntil(item.expiry, today);
+    let daysLabel = "";
+    if (item.expiry) {
+      if (d < 0) daysLabel = `${Math.abs(d)} days ago`;
+      else if (d === 0) daysLabel = "today";
+      else daysLabel = `in ${d} days`;
+    }
+    const shortBox = item.box.includes(":") ? item.box.split(":")[1].trim() : item.box;
+    const accentColor = status === "expired" ? "var(--color-text-danger)" : status === "soon" ? "var(--color-text-warning)" : "var(--color-border-tertiary)";
+    return `
+    <div class="mt-card" data-id="${item.id}" style="border-left: 3px solid ${accentColor};">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+        <div style="min-width:0;">
+          <div style="font-weight:600; font-size:14.5px; letter-spacing:-0.01em;">${item.name}</div>
+          <div style="font-size:12px; color: var(--color-text-secondary); margin-top:3px;">${item.nameLocal && item.nameLocal !== item.name ? item.nameLocal + " &middot; " : ""}${item.ingredient || ""}</div>
+        </div>
+        <div style="display:flex; gap:4px; flex-shrink:0;">
+          ${statusPill(status)}
+        </div>
+      </div>
+      <div style="font-size:13px; color: var(--color-text-primary); margin-top:10px; line-height:1.5; font-weight:500;">${item.use}</div>
+      ${item.about ? `<div style="font-size:12.5px; color: var(--color-text-secondary); margin-top:5px; line-height:1.6;">${item.about}</div>` : ""}
+      <div class="mt-meta-row">
+        <span class="mt-meta-item"><svg class="mt-icon" style="width:12px;height:12px;" aria-hidden="true"><use href="#icon-box"/></svg>${shortBox}</span>
+        <span class="mt-meta-item">${item.qty || "-"}</span>
+        <span class="mt-meta-item"><svg class="mt-icon" style="width:12px;height:12px;" aria-hidden="true"><use href="#icon-calendar"/></svg>${fmtDate(item.expiry)}${daysLabel ? " (" + daysLabel + ")" : ""}</span>
+      </div>
+      ${item.notes ? `<div style="font-size:12px; color: var(--color-text-secondary); margin-top:7px; line-height:1.5; font-style:italic; padding:7px 9px; background:var(--color-background-secondary); border-radius:6px;">${item.notes}</div>` : ""}
+      <div class="mt-divider" style="margin-top:12px;"></div>
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; gap:8px; flex-wrap:wrap;">
+        <select class="mt-select mt-action-select" data-id="${item.id}" style="height:32px; border-radius: var(--border-radius-md); border:1px solid var(--color-border-tertiary); background: var(--color-background-primary); color: var(--color-text-primary); padding:0 8px; font-weight:500;">
+          <option value="Keep" ${item.action==="Keep"?"selected":""}>Keep</option>
+          <option value="Refill Soon" ${item.action==="Refill Soon"?"selected":""}>Refill soon</option>
+          <option value="Needs Refill" ${item.action==="Needs Refill"?"selected":""}>Needs refill</option>
+          <option value="Keep - No Refill" ${item.action==="Keep - No Refill"?"selected":""}>Keep, no refill</option>
+          <option value="Discard" ${item.action==="Discard"?"selected":""}>Discard</option>
+        </select>
+        <div style="display:flex; gap:6px;">
+          <button class="mt-btn mt-refill-btn" data-id="${item.id}" aria-label="Refill ${item.name}" title="Update quantity and expiry"><svg class="mt-icon" aria-hidden="true"><use href="#icon-refresh"/></svg>Refill</button>
+          <button class="mt-btn mt-btn-icon mt-edit-btn" data-id="${item.id}" aria-label="Edit ${item.name}"><svg class="mt-icon" aria-hidden="true"><use href="#icon-edit"/></svg></button>
+          <button class="mt-btn mt-btn-icon mt-del-btn" data-id="${item.id}" aria-label="Delete ${item.name}"><svg class="mt-icon" aria-hidden="true"><use href="#icon-trash"/></svg></button>
+        </div>
+      </div>
+    </div>`;
+  }
+
+  function render() {
+    const today = new Date();
+    renderTabs();
+    renderKPIs(today);
+    const items = filteredItems(today);
+    const list = document.getElementById("mt-list");
+    const empty = document.getElementById("mt-empty");
+    if (items.length === 0) {
+      list.innerHTML = "";
+      empty.style.display = "block";
+    } else {
+      empty.style.display = "none";
+      list.innerHTML = items.map(i => itemCard(i, today)).join("");
+    }
+    list.querySelectorAll(".mt-action-select").forEach(sel => {
+      sel.addEventListener("change", async (e) => {
+        const id = e.target.dataset.id;
+        const item = state.items.find(i => i.id === id);
+        if (item) { item.action = e.target.value; await saveState(); render(); }
+      });
+    });
+    list.querySelectorAll(".mt-del-btn").forEach(btn => {
+      btn.addEventListener("click", async (e) => {
+        const id = e.currentTarget.dataset.id;
+        state.items = state.items.filter(i => i.id !== id);
+        await saveState();
+        render();
+      });
+    });
+    list.querySelectorAll(".mt-edit-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const id = e.currentTarget.dataset.id;
+        openEditor(id, false);
+      });
+    });
+    list.querySelectorAll(".mt-refill-btn").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        const id = e.currentTarget.dataset.id;
+        openEditor(id, true);
+      });
+    });
+  }
+
+  function openEditor(id, focusRefill) {
+    const item = id ? state.items.find(i => i.id === id) : null;
+    const isNew = !item;
+    const draft = item ? Object.assign({}, item) : {
+      id: "item-" + Date.now(), box: getBoxes()[0] || "Box 1", name: "", ingredient: "",
+      manufacturer: "", use: "", category: "", qty: "", expiry: null, action: "Keep", notes: ""
+    };
+
+    const overlay = document.createElement("div");
+    overlay.style.cssText = "min-height:400px; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.45); display:flex; align-items:center; justify-content:center; z-index:999; padding:20px;";
+    overlay.innerHTML = `
+      <div style="background:var(--color-background-primary); border-radius:var(--border-radius-lg); padding:1.25rem; max-width:480px; width:100%; max-height:85vh; overflow-y:auto;">
+        <div style="font-weight:500; font-size:15px; margin-bottom:12px;">${isNew ? "Add item" : "Edit item"}</div>
+        <div style="display:flex; flex-direction:column; gap:8px;">
+          <label style="font-size:12px; color:var(--color-text-secondary);">Box / location
+            <input id="f-box" class="mt-input" value="${draft.box}" style="width:100%; height:32px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:0 8px; background:var(--color-background-primary); color:var(--color-text-primary);">
+          </label>
+          <label style="font-size:12px; color:var(--color-text-secondary);">Medication name
+            <input id="f-name" class="mt-input" value="${draft.name}" style="width:100%; height:32px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:0 8px; background:var(--color-background-primary); color:var(--color-text-primary);">
+          </label>
+          <label style="font-size:12px; color:var(--color-text-secondary);">Local / Serbian name (as printed on box, for search)
+            <input id="f-namelocal" class="mt-input" value="${draft.nameLocal||''}" style="width:100%; height:32px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:0 8px; background:var(--color-background-primary); color:var(--color-text-primary);">
+          </label>
+          <label style="font-size:12px; color:var(--color-text-secondary);">Active ingredient(s)
+            <input id="f-ingredient" class="mt-input" value="${draft.ingredient||''}" style="width:100%; height:32px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:0 8px; background:var(--color-background-primary); color:var(--color-text-primary);">
+          </label>
+          <label style="font-size:12px; color:var(--color-text-secondary);">Primary use
+            <input id="f-use" class="mt-input" value="${draft.use||''}" style="width:100%; height:32px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:0 8px; background:var(--color-background-primary); color:var(--color-text-primary);">
+          </label>
+          <label style="font-size:12px; color:var(--color-text-secondary);">What it does (plain language)
+            <textarea id="f-about" style="width:100%; min-height:60px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:6px 8px; background:var(--color-background-primary); color:var(--color-text-primary); font-family:var(--font-sans); font-size:13px;">${draft.about||''}</textarea>
+          </label>
+          <div style="background:var(--color-background-info); border-radius:var(--border-radius-md); padding:10px; margin-top:4px;">
+            <div style="font-size:12px; font-weight:600; color:var(--color-text-info); margin-bottom:6px; display:flex; align-items:center; gap:5px;"><svg class="mt-icon" aria-hidden="true"><use href="#icon-refresh"/></svg>Refilled this item? Update its quantity and new expiry date here</div>
+            <div style="display:flex; gap:8px;">
+              <label style="font-size:12px; color:var(--color-text-secondary); flex:1;">Quantity
+                <input id="f-qty" class="mt-input" value="${draft.qty||''}" style="width:100%; height:32px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:0 8px; background:var(--color-background-primary); color:var(--color-text-primary);">
+              </label>
+              <label style="font-size:12px; color:var(--color-text-secondary); flex:1;">New expiry date
+                <input id="f-expiry" type="date" class="mt-input" value="${draft.expiry||''}" style="width:100%; height:32px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:0 8px; background:var(--color-background-primary); color:var(--color-text-primary);">
+              </label>
+            </div>
+          </div>
+          <label style="font-size:12px; color:var(--color-text-secondary);">Notes / dosage
+            <textarea id="f-notes" style="width:100%; min-height:50px; margin-top:2px; border-radius:var(--border-radius-md); border:0.5px solid var(--color-border-tertiary); padding:6px 8px; background:var(--color-background-primary); color:var(--color-text-primary); font-family:var(--font-sans); font-size:13px;">${draft.notes||''}</textarea>
+          </label>
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:14px;">
+          <button class="mt-btn" id="f-cancel">Cancel</button>
+          <button class="mt-btn" id="f-save" style="background:var(--color-text-primary); color:var(--color-background-primary);">Save</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+    if (focusRefill) {
+      const qtyField = overlay.querySelector("#f-qty");
+      setTimeout(() => { qtyField.focus(); qtyField.select(); }, 50);
+    }
+    overlay.querySelector("#f-cancel").addEventListener("click", () => overlay.remove());
+    overlay.querySelector("#f-save").addEventListener("click", async () => {
+      draft.box = overlay.querySelector("#f-box").value.trim() || draft.box;
+      draft.name = overlay.querySelector("#f-name").value.trim();
+      draft.nameLocal = overlay.querySelector("#f-namelocal").value.trim();
+      draft.ingredient = overlay.querySelector("#f-ingredient").value.trim();
+      draft.use = overlay.querySelector("#f-use").value.trim();
+      draft.about = overlay.querySelector("#f-about").value.trim();
+      const prevExpiry = draft.expiry;
+      draft.qty = overlay.querySelector("#f-qty").value.trim();
+      draft.expiry = overlay.querySelector("#f-expiry").value || null;
+      draft.notes = overlay.querySelector("#f-notes").value.trim();
+      if (!draft.name) { overlay.querySelector("#f-name").style.borderColor = "var(--color-border-secondary)"; return; }
+      const expiryChanged = draft.expiry && draft.expiry !== prevExpiry;
+      const today = new Date();
+      const isFuture = draft.expiry && (new Date(draft.expiry + "T00:00:00") > today);
+      if (expiryChanged && isFuture && actionBucket(draft.action) !== "keep") {
+        draft.action = "Keep";
+      }
+      if (isNew) state.items.push(draft);
+      else Object.assign(item, draft);
+      await saveState();
+      overlay.remove();
+      render();
+    });
+  }
+
+  document.getElementById("mt-search").addEventListener("input", (e) => { state.search = e.target.value; render(); });
+  document.getElementById("mt-filter-status").addEventListener("change", (e) => { state.statusFilter = e.target.value; render(); });
+  document.getElementById("mt-filter-action").addEventListener("change", (e) => { state.actionFilter = e.target.value; render(); });
+  document.getElementById("mt-add").addEventListener("click", () => openEditor(null, false));
+  document.getElementById("mt-export").addEventListener("click", () => {
+    const blob = JSON.stringify(state.items, null, 2);
+    const w = window.open("about:blank");
+    if (w) { w.document.write("<pre>" + blob.replace(/</g,"&lt;") + "</pre>"); }
+  });
+  document.getElementById("mt-reset").addEventListener("click", async () => {
+    if (!confirm("Reset all data back to the original inventory? This will discard your edits.")) return;
+    state.items = JSON.parse(JSON.stringify(SEED_DATA));
+    await saveState();
+    render();
+  });
+
+  (async function init() {
+    await loadState();
+    render();
+  })();
+})();
+
+
+</script>
+</body>
+</html>
